@@ -1,0 +1,14 @@
+{
+  "plansDirectory": ".claude/plans",
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(file:*)",
+      "WebSearch",
+      "Bash(go get:*)",
+      "Bash(go build:*)",
+      "Bash(go mod tidy:*)",
+      "Bash(go test:*)"
+    ]
+  }
+}
