@@ -37,10 +37,10 @@ func runRestore(cmd *cobra.Command, args []string) error {
 	}
 
 	// Restore is the reverse of backup: from backupDir to sourceDir
-	// Use exclude patterns to filter what gets restored
-	excludePatterns := viper.GetStringSlice("exclude")
+	// Use include patterns to filter what gets restored
+	includePatterns := viper.GetStringSlice("include")
 
-	syncer := sync.NewSyncer(backupDir, sourceDir, excludePatterns)
+	syncer := sync.NewSyncer(backupDir, sourceDir, includePatterns)
 	syncer.DryRun = !exec
 	syncer.Verbose = verbose
 

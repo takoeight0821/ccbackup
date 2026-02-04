@@ -39,11 +39,11 @@ type Syncer struct {
 }
 
 // NewSyncer creates a new Syncer.
-func NewSyncer(srcDir, dstDir string, excludePatterns []string) *Syncer {
+func NewSyncer(srcDir, dstDir string, includePatterns []string) *Syncer {
 	return &Syncer{
 		SrcDir: srcDir,
 		DstDir: dstDir,
-		Filter: NewFilter(excludePatterns),
+		Filter: NewFilter(includePatterns),
 	}
 }
 
@@ -82,7 +82,7 @@ func (s *Syncer) Plan(ctx context.Context) ([]SyncItem, error) {
 		}
 
 		// Check filter
-		if s.Filter.ShouldExclude(relPath) {
+		if !s.Filter.ShouldInclude(relPath) {
 			return nil
 		}
 

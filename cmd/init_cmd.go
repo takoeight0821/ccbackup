@@ -148,21 +148,11 @@ func writeDefaultConfig(path, backupDir string) error {
 
 	content := fmt.Sprintf(`backup_dir: "%s"
 source_dir: "%s"
-exclude:
-  - debug
-  - cache
-  - statsig
-  - telemetry
-  - plugins
-  - ide
-  - paste-cache
-  - shell-snapshots
-  - agents
-  - .DS_Store
-  - "*.json"
-  - "!history.jsonl"
-lfs_patterns:
-  - "file-history/**/*"
+include:
+  - projects
+  - history.jsonl
+  - plans
+  - todos
 `, backupDir, sourceDir)
 
 	return os.WriteFile(path, []byte(content), 0644)

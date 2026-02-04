@@ -40,8 +40,8 @@ func runConfigShow(cmd *cobra.Command, args []string) error {
 	fmt.Fprintf(out, "source_dir: %s\n", sourceDir)
 	fmt.Fprintf(out, "backup_dir: %s\n", backupDir)
 
-	fmt.Fprintln(out, "exclude:")
-	for _, pattern := range viper.GetStringSlice("exclude") {
+	fmt.Fprintln(out, "include:")
+	for _, pattern := range viper.GetStringSlice("include") {
 		fmt.Fprintf(out, "  - %s\n", pattern)
 	}
 

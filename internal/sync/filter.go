@@ -5,51 +5,33 @@ import (
 	"strings"
 )
 
-// Filter handles file exclusion based on patterns.
+// Filter handles file inclusion based on patterns.
 type Filter struct {
-	excludePatterns []string
-	includePatterns []string // negation patterns (start with !)
+	includePatterns []string
 }
 
-// NewFilter creates a Filter from a list of patterns.
-// Patterns starting with ! are negation patterns (include).
+// NewFilter creates a Filter from a list of include patterns.
 func NewFilter(patterns []string) *Filter {
-	f := &Filter{}
-	for _, p := range patterns {
-		if strings.HasPrefix(p, "!") {
-			f.includePatterns = append(f.includePatterns, p[1:])
-		} else {
-			f.excludePatterns = append(f.excludePatterns, p)
-		}
-	}
-	return f
+	return &Filter{includePatterns: patterns}
 }
 
-// ShouldExclude returns true if the path should be excluded.
-func (f *Filter) ShouldExclude(path string) bool {
-	// First check if it matches any include (negation) pattern
+// ShouldInclude returns true if the path should be included.
+func (f *Filter) ShouldInclude(path string) bool {
 	for _, pattern := range f.includePatterns {
-		if matchPattern(pattern, path) {
-			return false
-		}
-	}
-
-	// Then check if it matches any exclude pattern
-	for _, pattern := range f.excludePatterns {
 		if matchPattern(pattern, path) {
 			return true
 		}
 	}
-
 	return false
 }
 
 // matchPattern checks if a path matches a pattern.
 // Supports:
-// - Simple directory names: "debug" matches "debug" and "debug/foo"
-// - Wildcards: "*.json" matches "foo.json" and "bar/baz.json"
+// - Simple directory names: "projects" matches "projects" and "projects/foo"
+// - Exact file names: "history.jsonl" matches "history.jsonl"
+// - Wildcards: "*.jsonl" matches "foo.jsonl" and "bar/baz.jsonl"
 func matchPattern(pattern, path string) bool {
-	// Wildcard pattern (e.g., "*.json")
+	// Wildcard pattern (e.g., "*.jsonl")
 	if strings.Contains(pattern, "*") {
 		// Match against the base name of the path
 		base := filepath.Base(path)
@@ -57,7 +39,7 @@ func matchPattern(pattern, path string) bool {
 		return matched
 	}
 
-	// Directory pattern (e.g., "debug")
+	// Directory pattern (e.g., "projects")
 	// Match if path equals pattern or starts with pattern/
 	if path == pattern {
 		return true

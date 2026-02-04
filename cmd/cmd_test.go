@@ -16,8 +16,8 @@ func setupTestViper(t *testing.T, sourceDir, backupDir string) func() {
 	viper.Reset()
 	viper.Set("source_dir", sourceDir)
 	viper.Set("backup_dir", backupDir)
-	viper.Set("exclude", []string{"debug", "*.json", "!history.jsonl"})
-	viper.Set("lfs_patterns", []string{"file-history/**/*"})
+	viper.Set("include", []string{"projects", "history.jsonl", "plans", "todos"})
+	viper.Set("lfs_patterns", []string{})
 	viper.Set("exec", false)
 	viper.Set("verbose", false)
 
@@ -195,7 +195,7 @@ func TestConfigShow(t *testing.T) {
 	output := stdout.String()
 	assert.Contains(t, output, "source_dir:")
 	assert.Contains(t, output, "backup_dir:")
-	assert.Contains(t, output, "exclude:")
+	assert.Contains(t, output, "include:")
 }
 
 func TestConfigPath(t *testing.T) {

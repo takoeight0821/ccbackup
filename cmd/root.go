@@ -60,23 +60,13 @@ func setDefaults() {
 
 	viper.SetDefault("source_dir", filepath.Join(home, ".claude"))
 	viper.SetDefault("backup_dir", filepath.Join(home, "OneDrive - Cybozu", "claude-backup"))
-	viper.SetDefault("exclude", []string{
-		"debug",
-		"cache",
-		"statsig",
-		"telemetry",
-		"plugins",
-		"ide",
-		"paste-cache",
-		"shell-snapshots",
-		"agents",
-		".DS_Store",
-		"*.json",
-		"!history.jsonl",
+	viper.SetDefault("include", []string{
+		"projects",
+		"history.jsonl",
+		"plans",
+		"todos",
 	})
-	viper.SetDefault("lfs_patterns", []string{
-		"file-history/**/*",
-	})
+	viper.SetDefault("lfs_patterns", []string{})
 }
 
 // configFilePath returns the path to the config file.

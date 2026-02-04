@@ -66,26 +66,27 @@ func TestSyncer_Plan(t *testing.T) {
 	dst := t.TempDir()
 
 	// Create test files in src
-	require.NoError(t, os.WriteFile(filepath.Join(src, "file1.txt"), []byte("hello"), 0644))
-	require.NoError(t, os.MkdirAll(filepath.Join(src, "subdir"), 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(src, "subdir", "file2.txt"), []byte("world"), 0644))
-	// Create excluded file
+	require.NoError(t, os.MkdirAll(filepath.Join(src, "projects"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(src, "projects", "session.jsonl"), []byte("hello"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(src, "history.jsonl"), []byte("world"), 0644))
+	// Create files that should NOT be included
 	require.NoError(t, os.MkdirAll(filepath.Join(src, "debug"), 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(src, "debug", "log.txt"), []byte("debug"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(src, "settings.json"), []byte("settings"), 0644))
 
-	syncer := NewSyncer(src, dst, []string{"debug"})
+	syncer := NewSyncer(src, dst, []string{"projects", "history.jsonl"})
 	items, err := syncer.Plan(context.Background())
 	require.NoError(t, err)
 
-	// Should find 2 files (file1.txt and subdir/file2.txt), not debug/log.txt
+	// Should find 2 files (projects/session.jsonl and history.jsonl), not debug/log.txt or settings.json
 	assert.Len(t, items, 2)
 
 	paths := make([]string, len(items))
 	for i, item := range items {
 		paths[i] = item.RelPath
 	}
-	assert.Contains(t, paths, "file1.txt")
-	assert.Contains(t, paths, "subdir/file2.txt")
+	assert.Contains(t, paths, "projects/session.jsonl")
+	assert.Contains(t, paths, "history.jsonl")
 }
 
 func TestSyncer_Plan_ExistingDstFile(t *testing.T) {
@@ -93,18 +94,18 @@ func TestSyncer_Plan_ExistingDstFile(t *testing.T) {
 	dst := t.TempDir()
 
 	// Create test file in src
-	srcFile := filepath.Join(src, "file.txt")
+	srcFile := filepath.Join(src, "history.jsonl")
 	require.NoError(t, os.WriteFile(srcFile, []byte("hello"), 0644))
 
 	// Create same file in dst (same size, same time)
-	dstFile := filepath.Join(dst, "file.txt")
+	dstFile := filepath.Join(dst, "history.jsonl")
 	require.NoError(t, os.WriteFile(dstFile, []byte("hello"), 0644))
 
 	// Set same modtime
 	srcInfo, _ := os.Stat(srcFile)
 	require.NoError(t, os.Chtimes(dstFile, srcInfo.ModTime(), srcInfo.ModTime()))
 
-	syncer := NewSyncer(src, dst, nil)
+	syncer := NewSyncer(src, dst, []string{"history.jsonl"})
 	items, err := syncer.Plan(context.Background())
 	require.NoError(t, err)
 
@@ -117,11 +118,11 @@ func TestSyncer_Execute(t *testing.T) {
 	dst := t.TempDir()
 
 	// Create test files in src
-	require.NoError(t, os.WriteFile(filepath.Join(src, "file1.txt"), []byte("hello"), 0644))
-	require.NoError(t, os.MkdirAll(filepath.Join(src, "subdir"), 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(src, "subdir", "file2.txt"), []byte("world"), 0644))
+	require.NoError(t, os.MkdirAll(filepath.Join(src, "projects"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(src, "projects", "session.jsonl"), []byte("hello"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(src, "history.jsonl"), []byte("world"), 0644))
 
-	syncer := NewSyncer(src, dst, nil)
+	syncer := NewSyncer(src, dst, []string{"projects", "history.jsonl"})
 	result, err := syncer.Execute(context.Background())
 	require.NoError(t, err)
 
@@ -129,13 +130,13 @@ func TestSyncer_Execute(t *testing.T) {
 	assert.Equal(t, int64(10), result.TotalBytes) // "hello" + "world" = 10 bytes
 
 	// Verify files exist in dst
-	assert.FileExists(t, filepath.Join(dst, "file1.txt"))
-	assert.FileExists(t, filepath.Join(dst, "subdir", "file2.txt"))
+	assert.FileExists(t, filepath.Join(dst, "projects", "session.jsonl"))
+	assert.FileExists(t, filepath.Join(dst, "history.jsonl"))
 
 	// Verify content
-	content1, _ := os.ReadFile(filepath.Join(dst, "file1.txt"))
+	content1, _ := os.ReadFile(filepath.Join(dst, "projects", "session.jsonl"))
 	assert.Equal(t, "hello", string(content1))
-	content2, _ := os.ReadFile(filepath.Join(dst, "subdir", "file2.txt"))
+	content2, _ := os.ReadFile(filepath.Join(dst, "history.jsonl"))
 	assert.Equal(t, "world", string(content2))
 }
 
@@ -146,27 +147,29 @@ func TestSyncer_RoundTrip(t *testing.T) {
 	restored := t.TempDir()
 
 	// Create original files
-	require.NoError(t, os.WriteFile(filepath.Join(original, "file1.txt"), []byte("data1"), 0644))
-	require.NoError(t, os.MkdirAll(filepath.Join(original, "subdir"), 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(original, "subdir", "file2.txt"), []byte("data2"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(original, "history.jsonl"), []byte("data1"), 0644))
+	require.NoError(t, os.MkdirAll(filepath.Join(original, "projects"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(original, "projects", "session.jsonl"), []byte("data2"), 0644))
+
+	includePatterns := []string{"projects", "history.jsonl"}
 
 	// Backup: original -> backup
-	backupSyncer := NewSyncer(original, backup, nil)
+	backupSyncer := NewSyncer(original, backup, includePatterns)
 	_, err := backupSyncer.Execute(context.Background())
 	require.NoError(t, err)
 
 	// Restore: backup -> restored
-	restoreSyncer := NewSyncer(backup, restored, nil)
+	restoreSyncer := NewSyncer(backup, restored, includePatterns)
 	_, err = restoreSyncer.Execute(context.Background())
 	require.NoError(t, err)
 
 	// Compare original and restored
-	original1, _ := os.ReadFile(filepath.Join(original, "file1.txt"))
-	restored1, _ := os.ReadFile(filepath.Join(restored, "file1.txt"))
+	original1, _ := os.ReadFile(filepath.Join(original, "history.jsonl"))
+	restored1, _ := os.ReadFile(filepath.Join(restored, "history.jsonl"))
 	assert.Equal(t, original1, restored1)
 
-	original2, _ := os.ReadFile(filepath.Join(original, "subdir", "file2.txt"))
-	restored2, _ := os.ReadFile(filepath.Join(restored, "subdir", "file2.txt"))
+	original2, _ := os.ReadFile(filepath.Join(original, "projects", "session.jsonl"))
+	restored2, _ := os.ReadFile(filepath.Join(restored, "projects", "session.jsonl"))
 	assert.Equal(t, original2, restored2)
 }
 
@@ -175,9 +178,9 @@ func TestSyncer_DryRun(t *testing.T) {
 	dst := t.TempDir()
 
 	// Create test file in src
-	require.NoError(t, os.WriteFile(filepath.Join(src, "file.txt"), []byte("hello"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(src, "history.jsonl"), []byte("hello"), 0644))
 
-	syncer := NewSyncer(src, dst, nil)
+	syncer := NewSyncer(src, dst, []string{"history.jsonl"})
 	syncer.DryRun = true
 
 	result, err := syncer.Execute(context.Background())
@@ -187,6 +190,6 @@ func TestSyncer_DryRun(t *testing.T) {
 	assert.Equal(t, 1, result.CopiedCount)
 
 	// But file should NOT exist in dst
-	_, err = os.Stat(filepath.Join(dst, "file.txt"))
+	_, err = os.Stat(filepath.Join(dst, "history.jsonl"))
 	assert.True(t, os.IsNotExist(err))
 }

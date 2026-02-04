@@ -38,9 +38,9 @@ func runBackup(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("expand backup_dir: %w", err)
 	}
 
-	excludePatterns := viper.GetStringSlice("exclude")
+	includePatterns := viper.GetStringSlice("include")
 
-	syncer := sync.NewSyncer(sourceDir, backupDir, excludePatterns)
+	syncer := sync.NewSyncer(sourceDir, backupDir, includePatterns)
 	syncer.DryRun = !exec
 	syncer.Verbose = verbose
 
