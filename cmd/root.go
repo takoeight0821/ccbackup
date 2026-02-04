@@ -69,6 +69,8 @@ func setDefaults() {
 		"ide",
 		"paste-cache",
 		"shell-snapshots",
+		"agents",
+		".DS_Store",
 		"*.json",
 		"!history.jsonl",
 	})
