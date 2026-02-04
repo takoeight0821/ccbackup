@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -42,11 +43,45 @@ func initConfig() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		viper.AddConfigPath(home + "/.config/ccbackup")
+		viper.AddConfigPath(filepath.Join(home, ".config", "ccbackup"))
 		viper.SetConfigName("config")
 		viper.SetConfigType("yaml")
 	}
 	viper.SetEnvPrefix("CCBACKUP")
 	viper.AutomaticEnv()
 	_ = viper.ReadInConfig()
+
+	// Set defaults
+	setDefaults()
+}
+
+func setDefaults() {
+	home, _ := os.UserHomeDir()
+
+	viper.SetDefault("source_dir", filepath.Join(home, ".claude"))
+	viper.SetDefault("backup_dir", filepath.Join(home, "OneDrive - Cybozu", "claude-backup"))
+	viper.SetDefault("exclude", []string{
+		"debug",
+		"cache",
+		"statsig",
+		"telemetry",
+		"plugins",
+		"ide",
+		"paste-cache",
+		"shell-snapshots",
+		"*.json",
+		"!history.jsonl",
+	})
+	viper.SetDefault("lfs_patterns", []string{
+		"file-history/**/*",
+	})
+}
+
+// configFilePath returns the path to the config file.
+func configFilePath() string {
+	if cfgFile != "" {
+		return cfgFile
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".config", "ccbackup", "config.yaml")
 }
