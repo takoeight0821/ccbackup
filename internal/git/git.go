@@ -1,6 +1,7 @@
 package git
 
 import (
+	"fmt"
 	"os/exec"
 	"strings"
 )
@@ -66,5 +67,9 @@ func (g *Git) HasChanges() (bool, error) {
 func (g *Git) run(args ...string) error {
 	cmd := exec.Command("git", args...)
 	cmd.Dir = g.Dir
-	return cmd.Run()
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(output)))
+	}
+	return nil
 }

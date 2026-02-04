@@ -34,8 +34,14 @@ func init() {
 
 func runConfigShow(cmd *cobra.Command, args []string) error {
 	out := cmd.OutOrStdout()
-	sourceDir, _ := paths.ExpandHome(viper.GetString("source_dir"))
-	backupDir, _ := paths.ExpandHome(viper.GetString("backup_dir"))
+	sourceDir, err := paths.ExpandHome(viper.GetString("source_dir"))
+	if err != nil {
+		sourceDir = viper.GetString("source_dir") + " (expansion failed)"
+	}
+	backupDir, err := paths.ExpandHome(viper.GetString("backup_dir"))
+	if err != nil {
+		backupDir = viper.GetString("backup_dir") + " (expansion failed)"
+	}
 
 	fmt.Fprintf(out, "source_dir: %s\n", sourceDir)
 	fmt.Fprintf(out, "backup_dir: %s\n", backupDir)

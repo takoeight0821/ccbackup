@@ -14,7 +14,7 @@ var cfgFile string
 var rootCmd = &cobra.Command{
 	Use:   "ccbackup",
 	Short: "Claude Code history backup tool",
-	Long:  `Backup ~/.claude/ history to OneDrive with Git version control.`,
+	Long:  `Backup ~/.claude/ history with Git version control.`,
 }
 
 func Execute() {
@@ -35,14 +35,15 @@ func init() {
 }
 
 func initConfig() {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
 	} else {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
 		viper.AddConfigPath(filepath.Join(home, ".config", "ccbackup"))
 		viper.SetConfigName("config")
 		viper.SetConfigType("yaml")
@@ -52,14 +53,12 @@ func initConfig() {
 	_ = viper.ReadInConfig()
 
 	// Set defaults
-	setDefaults()
+	setDefaults(home)
 }
 
-func setDefaults() {
-	home, _ := os.UserHomeDir()
-
+func setDefaults(home string) {
 	viper.SetDefault("source_dir", filepath.Join(home, ".claude"))
-	viper.SetDefault("backup_dir", filepath.Join(home, "OneDrive - Cybozu", "claude-backup"))
+	viper.SetDefault("backup_dir", filepath.Join(home, "claude-backup"))
 	viper.SetDefault("include", []string{
 		"projects",
 		"history.jsonl",

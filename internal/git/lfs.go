@@ -1,7 +1,9 @@
 package git
 
 import (
+	"fmt"
 	"os/exec"
+	"strings"
 )
 
 // LFS wraps git-lfs commands.
@@ -36,5 +38,9 @@ func (l *LFS) run(args ...string) error {
 	lfsArgs := append([]string{"lfs"}, args...)
 	cmd := exec.Command("git", lfsArgs...)
 	cmd.Dir = l.Dir
-	return cmd.Run()
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(output)))
+	}
+	return nil
 }

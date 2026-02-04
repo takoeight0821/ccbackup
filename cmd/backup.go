@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -36,6 +38,19 @@ func runBackup(cmd *cobra.Command, args []string) error {
 	backupDir, err := paths.ExpandHome(viper.GetString("backup_dir"))
 	if err != nil {
 		return fmt.Errorf("expand backup_dir: %w", err)
+	}
+
+	// Validate source directory exists
+	if _, err := os.Stat(sourceDir); os.IsNotExist(err) {
+		return fmt.Errorf("source directory does not exist: %s", sourceDir)
+	}
+
+	// Validate backup directory is initialized (only when executing)
+	if exec {
+		gitDir := filepath.Join(backupDir, ".git")
+		if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+			return fmt.Errorf("backup directory not initialized, run 'ccbackup init --exec' first")
+		}
 	}
 
 	includePatterns := viper.GetStringSlice("include")
