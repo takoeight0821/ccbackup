@@ -48,17 +48,21 @@ func runRestore(cmd *cobra.Command, args []string) error {
 
 	if !exec {
 		// Dry-run: show what would be restored
-		items, err := syncer.Plan(ctx)
+		plan, err := syncer.Plan(ctx)
 		if err != nil {
 			return fmt.Errorf("plan: %w", err)
 		}
 
-		if len(items) == 0 {
+		for _, w := range plan.Warnings {
+			fmt.Fprintf(out, "Warning: %s: %v\n", w.RelPath, w.Err)
+		}
+
+		if len(plan.Items) == 0 {
 			fmt.Fprintln(out, "No changes to restore.")
 			return nil
 		}
 
-		for _, item := range items {
+		for _, item := range plan.Items {
 			fmt.Fprintf(out, "Would restore: %s (%s)\n", item.RelPath, formatSize(item.Size))
 		}
 		fmt.Fprintln(out, "\nRun with --exec to apply changes.")
@@ -71,7 +75,7 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("sync: %w", err)
 	}
 
-	if result.CopiedCount == 0 {
+	if result.CopiedCount == 0 && len(result.Errors) == 0 {
 		fmt.Fprintln(out, "No changes to restore.")
 		return nil
 	}
@@ -81,7 +85,16 @@ func runRestore(cmd *cobra.Command, args []string) error {
 			fmt.Fprintf(out, "Restored: %s\n", item.RelPath)
 		}
 	}
-	fmt.Fprintf(out, "Restored %d files (%s)\n", result.CopiedCount, formatSize(result.TotalBytes))
+	if result.CopiedCount > 0 {
+		fmt.Fprintf(out, "Restored %d files (%s)\n", result.CopiedCount, formatSize(result.TotalBytes))
+	}
+
+	if len(result.Errors) > 0 {
+		for _, e := range result.Errors {
+			fmt.Fprintf(out, "Failed: %s: %v\n", e.RelPath, e.Err)
+		}
+		return fmt.Errorf("%d file(s) failed to sync", len(result.Errors))
+	}
 
 	return nil
 }

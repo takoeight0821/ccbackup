@@ -64,6 +64,8 @@ func setDefaults(home string) {
 		"history.jsonl",
 		"plans",
 		"todos",
+		"usage-data",
+		"stats-cache.json",
 	})
 	viper.SetDefault("lfs_patterns", []string{})
 }

@@ -63,6 +63,32 @@ func TestFilter_WildcardPatterns(t *testing.T) {
 	}
 }
 
+func TestFilter_ExcludesOSJunkFiles(t *testing.T) {
+	f := NewFilter([]string{"projects", "history.jsonl", "*"})
+
+	tests := []struct {
+		name    string
+		path    string
+		include bool
+	}{
+		{".DS_Store at root", ".DS_Store", false},
+		{".DS_Store in subdir", "projects/.DS_Store", false},
+		{"Thumbs.db at root", "Thumbs.db", false},
+		{"Thumbs.db in subdir", "projects/Thumbs.db", false},
+		{"desktop.ini at root", "desktop.ini", false},
+		{"desktop.ini in subdir", "projects/desktop.ini", false},
+		// Normal files should still be included
+		{"normal file", "projects/session.jsonl", true},
+		{"history.jsonl", "history.jsonl", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.include, f.ShouldInclude(tt.path))
+		})
+	}
+}
+
 func TestFilter_EmptyPatterns(t *testing.T) {
 	f := NewFilter([]string{})
 	// With empty patterns, nothing should be included

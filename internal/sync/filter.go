@@ -5,6 +5,13 @@ import (
 	"strings"
 )
 
+// excludedFiles are OS junk files that should never be synced.
+var excludedFiles = map[string]bool{
+	".DS_Store":   true,
+	"Thumbs.db":   true,
+	"desktop.ini": true,
+}
+
 // Filter handles file inclusion based on patterns.
 type Filter struct {
 	includePatterns []string
@@ -17,6 +24,11 @@ func NewFilter(patterns []string) *Filter {
 
 // ShouldInclude returns true if the path should be included.
 func (f *Filter) ShouldInclude(path string) bool {
+	base := filepath.Base(path)
+	if excludedFiles[base] {
+		return false
+	}
+
 	for _, pattern := range f.includePatterns {
 		if matchPattern(pattern, path) {
 			return true

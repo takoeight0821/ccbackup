@@ -75,14 +75,14 @@ func TestSyncer_Plan(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(src, "settings.json"), []byte("settings"), 0644))
 
 	syncer := NewSyncer(src, dst, []string{"projects", "history.jsonl"})
-	items, err := syncer.Plan(context.Background())
+	plan, err := syncer.Plan(context.Background())
 	require.NoError(t, err)
 
 	// Should find 2 files (projects/session.jsonl and history.jsonl), not debug/log.txt or settings.json
-	assert.Len(t, items, 2)
+	assert.Len(t, plan.Items, 2)
 
-	paths := make([]string, len(items))
-	for i, item := range items {
+	paths := make([]string, len(plan.Items))
+	for i, item := range plan.Items {
 		paths[i] = item.RelPath
 	}
 	assert.Contains(t, paths, "projects/session.jsonl")
@@ -106,11 +106,11 @@ func TestSyncer_Plan_ExistingDstFile(t *testing.T) {
 	require.NoError(t, os.Chtimes(dstFile, srcInfo.ModTime(), srcInfo.ModTime()))
 
 	syncer := NewSyncer(src, dst, []string{"history.jsonl"})
-	items, err := syncer.Plan(context.Background())
+	plan, err := syncer.Plan(context.Background())
 	require.NoError(t, err)
 
 	// Should find 0 files (already synced)
-	assert.Len(t, items, 0)
+	assert.Len(t, plan.Items, 0)
 }
 
 func TestSyncer_Execute(t *testing.T) {
@@ -171,6 +171,55 @@ func TestSyncer_RoundTrip(t *testing.T) {
 	original2, _ := os.ReadFile(filepath.Join(original, "projects", "session.jsonl"))
 	restored2, _ := os.ReadFile(filepath.Join(restored, "projects", "session.jsonl"))
 	assert.Equal(t, original2, restored2)
+}
+
+func TestSyncer_Plan_UnreadableFile(t *testing.T) {
+	src := t.TempDir()
+	dst := t.TempDir()
+
+	// Create a directory that Walk cannot read
+	require.NoError(t, os.MkdirAll(filepath.Join(src, "projects", "subdir"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(src, "projects", "subdir", "data.jsonl"), []byte("data"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(src, "history.jsonl"), []byte("hello"), 0644))
+
+	// Make subdir unreadable so Walk fails for it
+	require.NoError(t, os.Chmod(filepath.Join(src, "projects", "subdir"), 0000))
+	t.Cleanup(func() {
+		os.Chmod(filepath.Join(src, "projects", "subdir"), 0755)
+	})
+
+	syncer := NewSyncer(src, dst, []string{"projects", "history.jsonl"})
+	plan, err := syncer.Plan(context.Background())
+	require.NoError(t, err)
+
+	// history.jsonl should still be planned
+	assert.True(t, len(plan.Items) >= 1, "should plan at least history.jsonl")
+	// There should be a warning about the unreadable directory
+	assert.NotEmpty(t, plan.Warnings, "should have warnings about unreadable path")
+}
+
+func TestSyncer_Execute_CopyError(t *testing.T) {
+	src := t.TempDir()
+	dst := t.TempDir()
+
+	// Create test files in src
+	require.NoError(t, os.WriteFile(filepath.Join(src, "history.jsonl"), []byte("hello"), 0644))
+	require.NoError(t, os.MkdirAll(filepath.Join(src, "projects"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(src, "projects", "session.jsonl"), []byte("world"), 0644))
+
+	// Make destination projects dir non-writable so copyFile fails for that file
+	require.NoError(t, os.MkdirAll(filepath.Join(dst, "projects"), 0555))
+	t.Cleanup(func() {
+		os.Chmod(filepath.Join(dst, "projects"), 0755)
+	})
+
+	syncer := NewSyncer(src, dst, []string{"projects", "history.jsonl"})
+	result, err := syncer.Execute(context.Background())
+	require.NoError(t, err)
+
+	// history.jsonl should succeed; projects/session.jsonl should fail
+	assert.True(t, result.CopiedCount >= 1, "should copy at least 1 file")
+	assert.NotEmpty(t, result.Errors, "should have errors for failed files")
 }
 
 func TestSyncer_DryRun(t *testing.T) {

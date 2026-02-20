@@ -22,11 +22,18 @@ type SyncItem struct {
 	Size    int64
 }
 
+// SyncError records a per-file error that did not abort the sync.
+type SyncError struct {
+	RelPath string
+	Err     error
+}
+
 // SyncResult holds the result of a sync operation.
 type SyncResult struct {
 	CopiedCount int
 	TotalBytes  int64
 	Items       []SyncItem
+	Errors      []SyncError
 }
 
 // Syncer handles file synchronization between source and destination.
@@ -61,13 +68,26 @@ func NeedsSync(src, dst *FileInfo) bool {
 	return false
 }
 
+// PlanResult holds items to sync and any warnings encountered during planning.
+type PlanResult struct {
+	Items    []SyncItem
+	Warnings []SyncError
+}
+
 // Plan scans the source directory and returns items that need syncing.
-func (s *Syncer) Plan(ctx context.Context) ([]SyncItem, error) {
-	var items []SyncItem
+func (s *Syncer) Plan(ctx context.Context) (*PlanResult, error) {
+	result := &PlanResult{}
 
 	err := filepath.Walk(s.SrcDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return err
+			// For walk errors on individual files, record and continue.
+			// If info is nil, we can try to get the relPath from the path.
+			relPath, relErr := filepath.Rel(s.SrcDir, path)
+			if relErr != nil {
+				relPath = path
+			}
+			result.Warnings = append(result.Warnings, SyncError{RelPath: relPath, Err: err})
+			return nil
 		}
 
 		// Skip directories
@@ -96,7 +116,7 @@ func (s *Syncer) Plan(ctx context.Context) ([]SyncItem, error) {
 		}
 
 		if NeedsSync(srcInfo, dstInfo) {
-			items = append(items, SyncItem{
+			result.Items = append(result.Items, SyncItem{
 				RelPath: relPath,
 				SrcPath: path,
 				DstPath: dstPath,
@@ -107,29 +127,35 @@ func (s *Syncer) Plan(ctx context.Context) ([]SyncItem, error) {
 		return nil
 	})
 
-	return items, err
+	return result, err
 }
 
 // Execute performs the sync operation.
 func (s *Syncer) Execute(ctx context.Context) (*SyncResult, error) {
-	items, err := s.Plan(ctx)
+	plan, err := s.Plan(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	result := &SyncResult{Items: items}
+	result := &SyncResult{
+		Items:  plan.Items,
+		Errors: plan.Warnings,
+	}
 
-	for _, item := range items {
-		result.CopiedCount++
-		result.TotalBytes += item.Size
-
+	for _, item := range plan.Items {
 		if s.DryRun {
+			result.CopiedCount++
+			result.TotalBytes += item.Size
 			continue
 		}
 
 		if err := s.copyFile(item.SrcPath, item.DstPath); err != nil {
-			return result, err
+			result.Errors = append(result.Errors, SyncError{RelPath: item.RelPath, Err: err})
+			continue
 		}
+
+		result.CopiedCount++
+		result.TotalBytes += item.Size
 	}
 
 	return result, nil
